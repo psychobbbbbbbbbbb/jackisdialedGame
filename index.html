@@ -1,0 +1,1980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DIALED OUT // Party Game</title>
+    <!-- Tailwind CSS for sleek utility layout -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Space Grotesk & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    <!-- PeerJS for WebRTC Serverless Realtime Sync -->
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <!-- QRCode library for easy phone joining -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        display: ['"Space Grotesk"', 'sans-serif'],
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'spin-slow': 'spin 12s linear infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: radial-gradient(circle at center, #1e1b4b 0%, #090514 100%);
+            overscroll-behavior: none;
+        }
+        .neon-glow {
+            text-shadow: 0 0 10px rgba(168, 85, 247, 0.6), 0 0 20px rgba(168, 85, 247, 0.4);
+        }
+        .neon-border-magenta {
+            box-shadow: 0 0 15px rgba(236, 72, 153, 0.3);
+            border-color: rgba(236, 72, 153, 0.6);
+        }
+        .neon-border-cyan {
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.3);
+            border-color: rgba(6, 182, 212, 0.6);
+        }
+        /* Custom styled slider tracks */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 9999px;
+            height: 12px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            margin-top: -6px;
+            background-color: #ffffff;
+            border: 3px solid #a855f7;
+            border-radius: 9999px;
+            height: 24px;
+            width: 24px;
+            box-shadow: 0 0 10px #a855f7;
+            transition: all 0.15s ease;
+        }
+        input[type="range"]::-webkit-slider-thumb:active {
+            transform: scale(1.2);
+            box-shadow: 0 0 18px #c084fc;
+        }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col justify-between overflow-x-hidden select-none">
+
+    <!-- TOP HEADER BAR -->
+    <header class="w-full py-4 px-6 border-b border-purple-900/30 bg-black/20 backdrop-blur-md flex justify-between items-center z-10">
+        <div class="flex items-center space-x-3 cursor-pointer" onclick="location.reload()">
+            <div class="bg-gradient-to-r from-pink-500 to-violet-600 p-2 rounded-xl shadow-lg shadow-purple-500/20">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            </div>
+            <div>
+                <h1 class="font-display font-black text-2xl tracking-wider bg-gradient-to-r from-pink-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">DIALED OUT</h1>
+                <p class="text-xs text-purple-400 tracking-widest uppercase font-bold">Party Perception Game</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-3">
+            <!-- Sandbox Phone Simulation Toggle -->
+            <button id="toggle-sidebar-btn" onclick="toggleVirtualPhone()" class="hidden px-4 py-1.5 bg-gradient-to-r from-cyan-500/20 to-purple-600/20 hover:from-cyan-500/30 hover:to-purple-600/30 border border-cyan-500/30 text-cyan-300 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all">
+                <span>📱</span>
+                <span>Open Sandbox Phone</span>
+            </button>
+            <div id="connection-badge" class="hidden px-3 py-1 rounded-full text-xs font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 animate-pulse">
+                DISCONNECTED
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN INTERACTIVE CONTAINER & DUAL-SCREEN SPLIT WRAPPER -->
+    <div class="flex-grow w-full max-w-7xl mx-auto p-4 flex flex-col lg:flex-row justify-center items-stretch gap-6 z-10">
+        
+        <!-- MAIN PANEL FOR TELEVISION HOST VIEW AND CONTROLLER ACTIONS -->
+        <main id="main-content-panel" class="flex-grow flex flex-col justify-center items-center transition-all duration-300 w-full">
+            
+            <!-- ======================= 1. ROLE SELECTION SCREEN ======================= -->
+            <div id="screen-role" class="w-full max-w-xl bg-purple-950/20 border border-purple-900/40 backdrop-blur-xl p-8 rounded-3xl text-center space-y-8 animate-fade-in">
+                <div class="space-y-2">
+                    <span class="px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-300 border border-purple-500/20 tracking-wider uppercase">Choose Screen Role</span>
+                    <h2 class="text-3xl font-display font-extrabold text-white">How will you play?</h2>
+                    <p class="text-sm text-slate-400">Run the TV view on a big screen, and use phones as game controllers!</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Host TV Option -->
+                    <button onclick="setupHost()" class="group flex flex-col items-center justify-between p-6 bg-slate-900/50 hover:bg-slate-900/80 border border-slate-800 hover:border-pink-500/50 rounded-2xl transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl hover:shadow-pink-500/5">
+                        <div class="p-4 bg-pink-500/10 text-pink-400 rounded-2xl group-hover:bg-pink-500 group-hover:text-white transition-all duration-300 mb-4">
+                            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                        </div>
+                        <span class="font-display font-bold text-xl text-white mb-1">Host Game</span>
+                        <span class="text-xs text-slate-400 text-center flex items-center justify-center space-x-1">
+                            <span class="text-indigo-400 font-bold">Requires:</span> <span>🖥️ PC/TV</span>
+                        </span>
+                    </button>
+
+                    <!-- Phone Controller Option -->
+                    <button onclick="setupControllerView()" class="group flex flex-col items-center justify-between p-6 bg-slate-900/50 hover:bg-slate-900/80 border border-slate-800 hover:border-cyan-500/50 rounded-2xl transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl hover:shadow-cyan-500/5">
+                        <div class="p-4 bg-cyan-500/10 text-cyan-400 rounded-2xl group-hover:bg-cyan-500 group-hover:text-white transition-all duration-300 mb-4">
+                            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                        </div>
+                        <span class="font-display font-bold text-xl text-white mb-1">Join Controller</span>
+                        <span class="text-xs text-slate-400 text-center flex items-center justify-center space-x-1">
+                            <span class="text-cyan-400 font-bold">Requires:</span> <span>📱 Mobile</span>
+                        </span>
+                    </button>
+                </div>
+
+                <div class="pt-4 border-t border-purple-900/20 flex flex-col items-center">
+                    <button onclick="setupSoloSandbox()" class="px-5 py-2.5 bg-purple-600/20 hover:bg-purple-600/40 border border-purple-500/30 rounded-xl text-sm font-semibold tracking-wide hover:neon-border-magenta transition-all">
+                        ⚡ Quick Solo Demo (With AI Bots)
+                    </button>
+                    <p class="text-xs text-purple-400/80 mt-2">Perfect for exploring the game loops without connecting extra devices.</p>
+                </div>
+            </div>
+
+            <!-- ======================= DEVICE RESTRICTION WARNING SCREEN ======================= -->
+            <div id="screen-device-warning" class="hidden w-full max-w-md bg-slate-950/90 border border-purple-800 backdrop-blur-2xl p-8 rounded-3xl text-center space-y-6 animate-fade-in shadow-2xl">
+                <div class="space-y-4">
+                    <div id="warning-icon" class="w-20 h-20 bg-yellow-500/15 border border-yellow-500/30 text-yellow-400 rounded-2xl flex items-center justify-center mx-auto text-4xl shadow-lg">
+                        ⚠️
+                    </div>
+                    <div class="space-y-2">
+                        <h3 id="warning-title" class="font-display font-bold text-2xl text-white">Device Mismatch</h3>
+                        <p id="warning-desc" class="text-sm text-slate-400 leading-relaxed">This selection is configured for a different display platform.</p>
+                    </div>
+                </div>
+
+                <div class="space-y-3 pt-2">
+                    <button id="warning-primary-action" class="w-full py-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-95 rounded-xl font-display font-bold text-white shadow-lg transition-all active:scale-[0.98]">
+                        SWITCH DISPLAY MODE
+                    </button>
+                    <button id="warning-bypass-action" class="w-full py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-200 tracking-wide transition-all">
+                        🛠️ Bypass Warning (Developer Mode)
+                    </button>
+                </div>
+            </div>
+
+            <!-- ======================= 2. HOST LOBBY SCREEN ======================= -->
+            <div id="screen-host-lobby" class="hidden w-full max-w-4xl grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch animate-fade-in">
+                <!-- Room Access Card -->
+                <div class="lg:col-span-1 bg-slate-950/40 border border-slate-800/80 p-6 rounded-3xl flex flex-col justify-between space-y-6">
+                    <div class="space-y-4">
+                        <span class="px-3 py-1 rounded-full text-xs font-bold bg-pink-500/10 text-pink-400 border border-pink-500/20">PARTY CODE</span>
+                        <div class="space-y-1">
+                            <div id="lobby-room-code" class="text-6xl font-display font-black tracking-widest text-white animate-pulse">----</div>
+                            <p class="text-xs text-slate-400">Join on another device with this code!</p>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col items-center bg-white p-4 rounded-2xl w-full max-w-[200px] mx-auto shadow-xl">
+                        <div id="lobby-qrcode" class="w-full h-full aspect-square text-black"></div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <div id="lobby-peer-status" class="text-xs text-slate-500 text-center">Connecting to signaling room...</div>
+                        <button id="start-game-btn" onclick="hostStartGame()" disabled class="w-full py-4 rounded-xl text-center font-display font-bold text-lg bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed transition-all">
+                            WAITING FOR PLAYERS
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Connected Players Card -->
+                <div class="lg:col-span-2 bg-purple-950/15 border border-purple-900/30 backdrop-blur-xl p-8 rounded-3xl flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="font-display font-bold text-2xl text-white">Lobby Room</h3>
+                            <span id="player-count-badge" class="px-3 py-1 rounded-full text-xs font-bold bg-purple-500/20 text-purple-300">0 Players Connected</span>
+                        </div>
+                        
+                        <!-- Player Grid -->
+                        <div id="lobby-player-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                            <!-- Populated Dynamically -->
+                        </div>
+                        
+                        <div id="lobby-empty-hint" class="flex flex-col items-center justify-center py-16 text-center space-y-3">
+                            <div class="animate-bounce p-3 bg-purple-950/40 rounded-full text-purple-400">
+                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            </div>
+                            <p class="text-slate-400 text-sm">Grab your phone, scan the QR code, or use the Sandbox Phone button!</p>
+                        </div>
+                    </div>
+
+                    <div class="pt-6 border-t border-purple-900/10 flex justify-between items-center text-xs text-purple-400">
+                        <span>WebRTC Peer / Broadcast Network active</span>
+                        <button onclick="addMockPlayer()" class="text-purple-300 hover:text-purple-100 underline decoration-purple-500 decoration-2 underline-offset-4 font-semibold">
+                            + Add Test AI Player
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ======================= 3. CONTROLLER JOIN SCREEN ======================= -->
+            <div id="screen-controller-join" class="hidden w-full max-w-md bg-slate-950/40 border border-slate-800 backdrop-blur-2xl p-8 rounded-3xl space-y-6 animate-fade-in">
+                <div class="text-center space-y-2">
+                    <div class="w-16 h-16 bg-cyan-500/10 text-cyan-400 rounded-2xl flex items-center justify-center mx-auto mb-2 border border-cyan-500/20">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                    </div>
+                    <h3 class="font-display font-bold text-2xl text-white">Join the Party</h3>
+                    <p class="text-sm text-slate-400">Set up your controller parameters below</p>
+                </div>
+
+                <!-- Error Notice Box -->
+                <div id="join-error" class="hidden p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-xl text-center"></div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-purple-400 tracking-wider uppercase mb-1">Room Code</label>
+                        <input type="text" id="join-code-input" placeholder="ABCD" maxlength="4" class="w-full py-3 px-4 bg-slate-900 border border-slate-800 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 rounded-xl text-center font-display font-bold text-2xl tracking-widest text-white uppercase placeholder-slate-600 outline-none transition-all">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-purple-400 tracking-wider uppercase mb-1">Nickname</label>
+                        <input type="text" id="join-name-input" placeholder="Player Name" maxlength="12" class="w-full py-3 px-4 bg-slate-900 border border-slate-800 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 rounded-xl text-center text-lg font-semibold text-white placeholder-slate-600 outline-none transition-all">
+                    </div>
+
+                    <!-- Avatar Selector -->
+                    <div>
+                        <label class="block text-xs font-bold text-purple-400 tracking-wider uppercase mb-1">Select Avatar</label>
+                        <div id="join-avatar-selector" class="grid grid-cols-6 gap-2">
+                            <!-- Populated via JS -->
+                        </div>
+                    </div>
+
+                    <button onclick="controllerJoinRoom()" class="w-full py-4 bg-gradient-to-r from-cyan-500 to-indigo-600 hover:neon-border-cyan rounded-xl font-display font-bold text-lg text-white shadow-lg transition-all active:scale-[0.98]">
+                        CONNECT CONTROLLER
+                    </button>
+                </div>
+            </div>
+
+            <!-- ======================= 4. CONTROLLER LOBBY/WAITING SCREEN ======================= -->
+            <div id="screen-controller-lobby" class="hidden w-full max-w-md bg-slate-950/40 border border-slate-800 backdrop-blur-2xl p-8 rounded-3xl text-center space-y-6 animate-fade-in">
+                <div class="space-y-4 py-8">
+                    <div class="relative w-20 h-20 mx-auto">
+                        <div class="absolute inset-0 bg-cyan-500/20 rounded-full animate-ping"></div>
+                        <div id="controller-lobby-avatar" class="relative w-20 h-20 bg-slate-900 border border-cyan-500/40 rounded-full flex items-center justify-center text-4xl shadow-xl">👽</div>
+                    </div>
+                    <div class="space-y-1">
+                        <h3 id="controller-lobby-name" class="font-display font-bold text-2xl text-white">Captain Astro</h3>
+                        <p class="text-xs text-cyan-400 font-bold uppercase tracking-widest">Controller Connected</p>
+                    </div>
+                    <p class="text-sm text-slate-400">Keep this screen open. When the host starts, your controller will morph into an input pad!</p>
+                </div>
+
+                <!-- Interactivity: Jackbox Style Noise Maker -->
+                <div class="pt-6 border-t border-slate-800 space-y-2">
+                    <p class="text-xs text-slate-500">Bored? Send sound effects to the TV!</p>
+                    <div class="grid grid-cols-4 gap-2">
+                        <button onclick="sendEmoteNoise('horn')" class="p-2.5 bg-purple-600/10 hover:bg-purple-600/30 border border-purple-500/20 rounded-xl text-lg hover:scale-105 active:scale-95 transition-all">📯</button>
+                        <button onclick="sendEmoteNoise('clap')" class="p-2.5 bg-purple-600/10 hover:bg-purple-600/30 border border-purple-500/20 rounded-xl text-lg hover:scale-105 active:scale-95 transition-all">👏</button>
+                        <button onclick="sendEmoteNoise('wow')" class="p-2.5 bg-purple-600/10 hover:bg-purple-600/30 border border-purple-500/20 rounded-xl text-lg hover:scale-105 active:scale-95 transition-all">🔥</button>
+                        <button onclick="sendEmoteNoise('boo')" class="p-2.5 bg-purple-600/10 hover:bg-purple-600/30 border border-purple-500/20 rounded-xl text-lg hover:scale-105 active:scale-95 transition-all">👎</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ======================= 5. HOST GAME AREA (MAIN SCREENS) ======================= -->
+            <div id="screen-host-game" class="hidden w-full max-w-5xl bg-slate-950/40 border border-slate-800/80 backdrop-blur-2xl rounded-3xl p-8 flex flex-col space-y-8 min-h-[500px] animate-fade-in relative overflow-hidden">
+                
+                <!-- Game Status HUD Header -->
+                <div class="flex justify-between items-center border-b border-slate-800 pb-4 z-10">
+                    <div class="flex items-center space-x-3">
+                        <div id="game-badge" class="px-3 py-1 bg-pink-500 text-white rounded-lg text-xs font-bold tracking-widest uppercase">COLOR MATCH</div>
+                        <h2 id="round-title" class="font-display font-extrabold text-xl md:text-2xl text-white">Memorize the Stimulus!</h2>
+                    </div>
+                    <!-- Interactive Timer ring or box -->
+                    <div id="hud-timer" class="flex items-center space-x-2 text-2xl font-display font-extrabold text-yellow-400">
+                        <svg class="w-6 h-6 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span id="timer-number">10</span>
+                    </div>
+                </div>
+
+                <!-- Dynamic Host Game Sub-Screens -->
+                <div class="flex-grow flex flex-col justify-center items-center py-6 min-h-[250px] relative z-10">
+                    
+                    <!-- HOST SUB-SCREEN A: INTRO/PRE-GAME STAGE -->
+                    <div id="host-sub-intro" class="hidden flex flex-col items-center text-center space-y-6 max-w-xl">
+                        <div id="intro-game-icon" class="w-24 h-24 rounded-3xl bg-pink-500/10 text-pink-400 flex items-center justify-center border border-pink-500/30 animate-pulse text-5xl">🎨</div>
+                        <div class="space-y-2">
+                            <h3 id="intro-game-title" class="text-4xl font-display font-extrabold text-white">COLOR ACCURACY</h3>
+                            <p id="intro-game-desc" class="text-slate-400 text-base leading-relaxed">A core target color will flashes on this screen. Use your mobile device's sliders to recreate the shade perfectly from memory.</p>
+                        </div>
+                    </div>
+
+                    <!-- HOST SUB-SCREEN B: STIMULUS DISPLAY STAGE -->
+                    <div id="host-sub-stimulus" class="hidden flex flex-col items-center text-center space-y-6 w-full max-w-xl">
+                        <!-- Target box for color/time/sound visualization -->
+                        <div id="stimulus-display" class="w-full aspect-[2/1] rounded-2xl flex items-center justify-center border-4 border-slate-700/50 shadow-2xl transition-all duration-300">
+                            <!-- Inside content depends on game:
+                                 Color: giant block of HSL
+                                 Time: static visual ring or flashing indicator
+                                 Sound: dynamic visualizer showing music notes
+                            -->
+                        </div>
+                        <p id="stimulus-hint" class="text-lg font-medium text-slate-300">Watch closely. Do not look away.</p>
+                    </div>
+
+                    <!-- HOST SUB-SCREEN C: ACTIVE INPUT / COUNTDOWN STAGE -->
+                    <div id="host-sub-input" class="hidden flex flex-col items-center w-full space-y-6">
+                        <h4 class="text-xl text-slate-300 font-semibold mb-4">Players are inputting answers on their screens...</h4>
+                        <!-- Submission grid -->
+                        <div id="input-players-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
+                            <!-- Custom dynamic player tiles showing checkmark or 'thinking...' -->
+                        </div>
+                    </div>
+
+                    <!-- HOST SUB-SCREEN D: REVEAL STAGE -->
+                    <div id="host-sub-reveal" class="hidden flex flex-col items-center w-full space-y-6">
+                        <h3 class="text-3xl font-display font-extrabold text-white mb-2">The Moment of Truth</h3>
+                        <div id="reveal-canvas-container" class="w-full bg-slate-900/60 border border-slate-800 rounded-2xl p-6 flex flex-col space-y-6 relative">
+                            <!-- Renders customized visualization matching the game type -->
+                        </div>
+                    </div>
+
+                    <!-- HOST SUB-SCREEN E: SCOREBOARD STAGE -->
+                    <div id="host-sub-scoreboard" class="hidden flex flex-col items-center w-full max-w-2xl space-y-6">
+                        <h3 class="text-3xl font-display font-extrabold text-white">Current Standings</h3>
+                        <div id="scoreboard-list" class="w-full space-y-4">
+                            <!-- Animated progress rows -->
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Host Actions Footer -->
+                <div class="flex justify-between items-center border-t border-slate-800 pt-4 z-10">
+                    <p id="host-progress-text" class="text-xs text-slate-500 font-bold uppercase tracking-wide">Round 1 of 3</p>
+                    <button id="host-control-action-btn" onclick="triggerNextGameStep()" class="px-6 py-2.5 bg-purple-600 hover:bg-purple-500 rounded-xl text-sm font-bold shadow-lg shadow-purple-500/10 hover:scale-[1.02] active:scale-[0.98] transition-all">
+                        Next Step
+                    </button>
+                </div>
+            </div>
+
+            <!-- ======================= 6. CONTROLLER INPUT CONTROLS ======================= -->
+            <div id="screen-controller-play" class="hidden w-full max-w-md bg-slate-950/40 border border-slate-800 backdrop-blur-2xl p-6 rounded-3xl space-y-6 animate-fade-in">
+                <!-- Round title / Prompt banner -->
+                <div class="flex justify-between items-center bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                    <div class="flex items-center space-x-2">
+                        <div id="control-game-avatar" class="text-2xl">🎨</div>
+                        <h4 id="control-game-title" class="font-bold text-sm text-white">Color Match</h4>
+                    </div>
+                    <div id="control-timer-badge" class="px-3 py-1 bg-yellow-500/15 border border-yellow-500/20 text-yellow-400 rounded-lg text-xs font-bold font-display animate-pulse">0:00</div>
+                </div>
+
+                <!-- Dynamic Input Canvas Areas -->
+                <div id="controller-input-container" class="py-4">
+                    
+                    <!-- GAME 1 INPUT: COLOR MATCH (HSL Sliders) -->
+                    <div id="ctrl-input-color" class="hidden space-y-6">
+                        <!-- Live Color preview box -->
+                        <div id="color-preview" class="w-full aspect-[2/1] rounded-2xl border-4 border-slate-700/60 shadow-lg flex items-center justify-center transition-all duration-150" style="background-color: hsl(180, 80%, 50%);">
+                            <span class="text-xs font-bold text-black/60 bg-white/70 px-3 py-1 rounded-full uppercase tracking-wider backdrop-blur">My Custom Shade</span>
+                        </div>
+
+                        <!-- HSL sliders -->
+                        <div class="space-y-4">
+                            <div class="space-y-1">
+                                <div class="flex justify-between text-xs font-semibold text-slate-400">
+                                    <span>HUE (Color Wheel)</span>
+                                    <span id="val-hue" class="text-pink-400 font-bold">180°</span>
+                                </div>
+                                <input type="range" id="slider-hue" min="0" max="360" value="180" oninput="updateColorPreview()" class="w-full">
+                            </div>
+
+                            <div class="space-y-1">
+                                <div class="flex justify-between text-xs font-semibold text-slate-400">
+                                    <span>SATURATION (Vividness)</span>
+                                    <span id="val-sat" class="text-purple-400 font-bold">80%</span>
+                                </div>
+                                <input type="range" id="slider-sat" min="0" max="100" value="80" oninput="updateColorPreview()" class="w-full">
+                            </div>
+
+                            <div class="space-y-1">
+                                <div class="flex justify-between text-xs font-semibold text-slate-400">
+                                    <span>LIGHTNESS (Bright vs Dark)</span>
+                                    <span id="val-light" class="text-cyan-400 font-bold">50%</span>
+                                </div>
+                                <input type="range" id="slider-light" min="10" max="90" value="50" oninput="updateColorPreview()" class="w-full">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- GAME 2 INPUT: TIME MATCH (Action Button) -->
+                    <div id="ctrl-input-time" class="hidden space-y-6 text-center">
+                        <p class="text-sm text-slate-400">Press and hold the button for exactly <span id="time-target-text" class="text-white font-bold underline">--.-</span> seconds!</p>
+                        
+                        <div class="flex flex-col items-center justify-center py-6">
+                            <!-- Holding button container -->
+                            <button id="time-hold-btn" 
+                                    onmousedown="timeBtnPressed()" 
+                                    onmouseup="timeBtnReleased()"
+                                    ontouchstart="timeBtnPressed(event)" 
+                                    ontouchend="timeBtnReleased(event)"
+                                    class="w-36 h-36 rounded-full bg-gradient-to-tr from-pink-600 to-indigo-600 border-4 border-white/10 flex flex-col items-center justify-center text-center cursor-pointer select-none relative focus:outline-none focus:ring-4 focus:ring-purple-500/30 active:scale-95 duration-100 shadow-xl shadow-purple-500/20">
+                                <!-- Inside icon -->
+                                <div id="time-btn-glow" class="absolute inset-0 bg-pink-500/30 rounded-full scale-110 opacity-0 transition-opacity duration-200"></div>
+                                <span class="text-sm font-bold tracking-wider relative z-10 text-white select-none">HOLD DOWN</span>
+                                <span id="time-holding-indicator" class="text-xs font-bold text-yellow-300 select-none hidden mt-1">RECORDING...</span>
+                            </button>
+                        </div>
+
+                        <div id="time-debug-result" class="text-xs text-purple-400 font-semibold h-4">
+                            (Duration captures instantly on release)
+                        </div>
+                    </div>
+
+                    <!-- GAME 3 INPUT: SOUND MATCH (Pitch slider & Test Tone) -->
+                    <div id="ctrl-input-sound" class="hidden space-y-6">
+                        <div class="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-between">
+                            <div class="space-y-1">
+                                <h5 class="text-sm font-semibold text-white">Dial in Pitch Tone</h5>
+                                <p class="text-xs text-slate-400">Match the frequency you heard on TV</p>
+                            </div>
+                            <button onclick="playControllerTestTone()" class="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-purple-500/10 hover:opacity-90 active:scale-95 transition-all">
+                                🔊 TEST FREQ
+                            </button>
+                        </div>
+
+                        <!-- Hertz slider -->
+                        <div class="space-y-2 pt-2">
+                            <div class="flex justify-between text-xs font-semibold text-slate-400">
+                                <span>FREQUENCY (A3 to A5 Pitch Scale)</span>
+                                <span id="val-hz" class="text-purple-400 font-bold">440 Hz</span>
+                            </div>
+                            <input type="range" id="slider-hz" min="220" max="880" value="440" oninput="updateHzValue()" class="w-full">
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Submit button for controllers -->
+                <button id="ctrl-submit-btn" onclick="controllerSubmitGuess()" class="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 rounded-xl font-display font-bold text-lg text-white shadow-xl transition-all active:scale-[0.98]">
+                    LOCK IN ANSWER
+                </button>
+            </div>
+
+            <!-- ======================= 7. CONTROLLER SUBMITTED STATE ======================= -->
+            <div id="screen-controller-submitted" class="hidden w-full max-w-md bg-slate-950/40 border border-slate-800 backdrop-blur-2xl p-8 rounded-3xl text-center space-y-6 animate-fade-in">
+                <div class="space-y-4 py-8">
+                    <div class="w-20 h-20 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center text-4xl shadow-xl mx-auto">
+                        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                    </div>
+                    <div class="space-y-1">
+                        <h3 class="font-display font-bold text-2xl text-white">Answer Locked!</h3>
+                        <p class="text-xs text-emerald-400 font-bold uppercase tracking-widest">Sent securely to TV</p>
+                    </div>
+                    <p id="controller-submit-feedback" class="text-sm text-slate-400">Wait for other players. You will see your score compared live on the Host screen!</p>
+                </div>
+
+                <!-- Sound trigger interaction board -->
+                <div class="pt-6 border-t border-slate-800 space-y-2">
+                    <p class="text-xs text-slate-500">Tap to cheer or make noise on the big screen!</p>
+                    <div class="grid grid-cols-4 gap-2">
+                        <button onclick="sendEmoteNoise('horn')" class="p-2.5 bg-purple-600/10 hover:bg-purple-600/30 border border-purple-500/20 rounded-xl text-lg hover:scale-105 active:scale-95 transition-all">📯</button>
+                        <button onclick="sendEmoteNoise('clap')" class="p-2.5 bg-purple-600/10 hover:bg-purple-600/30 border border-purple-500/20 rounded-xl text-lg hover:scale-105 active:scale-95 transition-all">👏</button>
+                        <button onclick="sendEmoteNoise('wow')" class="p-2.5 bg-purple-600/10 hover:bg-purple-600/30 border border-purple-500/20 rounded-xl text-lg hover:scale-105 active:scale-95 transition-all">🔥</button>
+                        <button onclick="sendEmoteNoise('boo')" class="p-2.5 bg-purple-600/10 hover:bg-purple-600/30 border border-purple-500/20 rounded-xl text-lg hover:scale-105 active:scale-95 transition-all">👎</button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- ======================= SANDBOX SIMULATOR SIDEBAR ======================= -->
+        <!-- Allows testing complete host-controller loops easily inside restricted iframe sandboxes -->
+        <div id="virtual-phone-sidebar" class="hidden w-full lg:w-[380px] min-h-[580px] lg:h-auto bg-slate-950/95 border-2 border-cyan-500/30 rounded-3xl overflow-hidden flex flex-col shadow-2xl relative transition-all duration-300">
+            <div class="bg-slate-900/90 px-4 py-3 border-b border-cyan-500/20 flex justify-between items-center">
+                <div class="flex items-center space-x-2">
+                    <span class="w-2.5 h-2.5 bg-cyan-400 rounded-full animate-pulse"></span>
+                    <span class="text-xs font-bold tracking-widest text-cyan-400 font-display uppercase">Sandbox Phone Controller</span>
+                </div>
+                <button onclick="toggleVirtualPhone()" class="text-slate-400 hover:text-white text-xs font-bold font-display tracking-wide">✕ CLOSE</button>
+            </div>
+            <!-- Dynamic local iframe load targeting the exact same page state -->
+            <iframe id="virtual-phone-iframe" src="about:blank" class="w-full flex-grow bg-slate-950"></iframe>
+        </div>
+
+    </div>
+
+    <!-- FOOTER LICENSE / BRANDING -->
+    <footer class="w-full py-4 text-center border-t border-purple-900/10 bg-black/10 text-xs text-slate-500 z-10 flex flex-col sm:flex-row justify-center items-center gap-2">
+        <span>&copy; 2026 Dialed Out Party Engine. Inspired by Dialed.gg & Jackbox Games.</span>
+        <span class="hidden sm:inline">|</span>
+        <span class="text-purple-400 font-bold">A Serverless Server/Client HTML Core Project</span>
+    </footer>
+
+    <!-- INTERACTIVE AUDIOPLAYER OVERLAY (No external files) -->
+    <div id="sound-indicator" class="fixed bottom-4 right-4 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-full text-xs text-slate-400 flex items-center space-x-1 shadow-lg pointer-events-none opacity-50 z-50">
+        <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+        <span>Audio Context Ready</span>
+    </div>
+
+    <!-- ======================= JAVASCRIPT GAME LOGIC ======================= -->
+    <script>
+        // --- 1. GLOBAL STATE DEFINITION ---
+        const GameState = {
+            role: null, // 'host' or 'controller'
+            peer: null,
+            conn: null, // If controller, connection to host. If host, this isn't used directly (uses players object)
+            roomCode: "",
+            isSandbox: false, // True if playing single player with AI bots
+            usingBroadcast: false, // Fallback signalling for restricted contexts
+            
+            // Player data store (On host screen)
+            players: {}, // key: peerId, value: { name, avatar, score, currentGuess, submitted: bool, isBot: bool }
+            
+            // Game loops
+            rounds: [
+                { type: 'color', name: 'Hue Hunt', desc: 'A color stimulus will flash. Match Hue, Saturation, and Lightness accurately.' },
+                { type: 'time', name: 'Clock Control', desc: 'Memorize the target countdown duration, then match it exactly using the holding pad.' },
+                { type: 'sound', name: 'Sonic Harmony', desc: 'Listen to the pure frequency wave played by the TV. Slide your dialing pad to match.' }
+            ],
+            currentRoundIdx: 0,
+            currentRoundStep: 'LOBBY', // 'INTRO', 'STIMULUS', 'INPUT', 'REVEAL', 'SCOREBOARD'
+            
+            // Sub-challenges generators/target answers
+            targets: {
+                color: { h: 180, s: 80, l: 50 },
+                time: 3.5, // seconds
+                sound: 440 // hertz
+            },
+            
+            timerVal: 0,
+            timerInterval: null
+        };
+
+        const AVATARS = ["🛸", "🤖", "🎨", "🚀", "🎸", "🎧", "🕹️", "⚡", "🔮", "🍕", "🦖", "🦊"];
+        let audioCtx = null;
+        let bcChannel = null;
+        let bcId = "";
+
+        // --- DEVICE PLATFORM DETECTION ENGINE ---
+        function isMobileDevice() {
+            const ua = navigator.userAgent || navigator.vendor || window.opera;
+            const mobileRegex = /(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+android|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino/i;
+            const tabletRegex = /android|ipad|playbook|silk/i;
+            const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+            const isSmallScreen = window.innerWidth <= 1024;
+            return mobileRegex.test(ua) || tabletRegex.test(ua) || (isTouch && isSmallScreen);
+        }
+
+        function checkDeviceRestriction(targetRole) {
+            const isMobile = isMobileDevice();
+            const isIframe = window.self !== window.top;
+
+            // Automatically allow if running within the developer's side-by-side simulation sandbox iframe
+            if (isIframe) {
+                return true;
+            }
+
+            if (targetRole === 'host' && isMobile) {
+                showDeviceWarning(
+                    "🖥️ Large Screen Required",
+                    "The Host/TV display is built for large screens (Laptops, Desktops, or TV Monitors). Opening this on a phone cuts off important graphs, visualizers, and player leaderboards.",
+                    "Choose Controller Mode Instead",
+                    () => { setupControllerView(); },
+                    () => { proceedToHost(); }
+                );
+                return false;
+            }
+
+            if (targetRole === 'controller' && !isMobile) {
+                showDeviceWarning(
+                    "📱 Mobile Device Recommended",
+                    "To replicate the classic Jackbox second-screen dynamic, controllers run best on your smart phone or tablet. Please scan the Host QR code with your phone.",
+                    "Host a Game Instead",
+                    () => { setupHost(); },
+                    () => { proceedToController(); }
+                );
+                return false;
+            }
+
+            return true;
+        }
+
+        function showDeviceWarning(title, desc, primaryBtnText, primaryCallback, bypassCallback) {
+            showScreen('screen-device-warning');
+            document.getElementById('warning-title').innerText = title;
+            document.getElementById('warning-desc').innerText = desc;
+            
+            const pBtn = document.getElementById('warning-primary-action');
+            pBtn.innerText = primaryBtnText;
+            pBtn.onclick = () => {
+                playUiSound('click');
+                primaryCallback();
+            };
+
+            const bBtn = document.getElementById('warning-bypass-action');
+            bBtn.onclick = () => {
+                playUiSound('success');
+                bypassCallback();
+            };
+        }
+
+        // Ensure safe audio context instantiation
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                document.getElementById('sound-indicator').classList.remove('opacity-50');
+            }
+        }
+
+        // Custom Sound Effects Synthesizer using Web Audio API
+        function playSynthTone(freq, type, duration, slideTo = null) {
+            initAudio();
+            if (!audioCtx) return;
+
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            osc.type = type || 'sine';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+            if (slideTo) {
+                osc.frequency.exponentialRampToValueAtTime(slideTo, audioCtx.currentTime + duration);
+            }
+
+            gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function playUiSound(soundName) {
+            switch(soundName) {
+                case 'click':
+                    playSynthTone(600, 'triangle', 0.08);
+                    break;
+                case 'success':
+                    playSynthTone(523.25, 'sine', 0.1); // C5
+                    setTimeout(() => playSynthTone(659.25, 'sine', 0.1), 100); // E5
+                    setTimeout(() => playSynthTone(783.99, 'sine', 0.2), 200); // G5
+                    break;
+                case 'countdown-tick':
+                    playSynthTone(150, 'square', 0.05);
+                    break;
+                case 'countdown-alarm':
+                    playSynthTone(220, 'sawtooth', 0.3);
+                    setTimeout(() => playSynthTone(180, 'sawtooth', 0.3), 150);
+                    break;
+                case 'reveal-reveal':
+                    playSynthTone(261.63, 'sine', 0.3, 523.25); // Slidy synth swoop
+                    break;
+                case 'horn':
+                    playSynthTone(120, 'sawtooth', 0.5, 110);
+                    setTimeout(() => playSynthTone(120, 'sawtooth', 0.3), 150);
+                    break;
+                case 'clap':
+                    playSynthTone(800, 'triangle', 0.05);
+                    setTimeout(() => playSynthTone(900, 'triangle', 0.05), 40);
+                    setTimeout(() => playSynthTone(850, 'triangle', 0.05), 80);
+                    break;
+                case 'wow':
+                    playSynthTone(330, 'sine', 0.4, 660);
+                    break;
+                case 'boo':
+                    playSynthTone(180, 'sawtooth', 0.5, 90);
+                    break;
+            }
+        }
+
+        // --- 2. SCREEN ROUTER CONTROLLER ---
+        function showScreen(screenId) {
+            // Hide all
+            document.getElementById('screen-role').classList.add('hidden');
+            document.getElementById('screen-host-lobby').classList.add('hidden');
+            document.getElementById('screen-controller-join').classList.add('hidden');
+            document.getElementById('screen-controller-lobby').classList.add('hidden');
+            document.getElementById('screen-host-game').classList.add('hidden');
+            document.getElementById('screen-controller-play').classList.add('hidden');
+            document.getElementById('screen-controller-submitted').classList.add('hidden');
+            
+            if (document.getElementById('screen-device-warning')) {
+                document.getElementById('screen-device-warning').classList.add('hidden');
+            }
+
+            // Show target
+            document.getElementById(screenId).classList.remove('hidden');
+        }
+
+        // --- 3. LOBBY GENERATION & HOST INITS ---
+        function setupHost() {
+            if (!checkDeviceRestriction('host')) return;
+            proceedToHost();
+        }
+
+        function proceedToHost() {
+            initAudio();
+            GameState.role = 'host';
+            showScreen('screen-host-lobby');
+            
+            // Generate Random 4-Letter Room Code
+            const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // simplified set
+            let code = "";
+            for (let i = 0; i < 4; i++) {
+                code += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+            }
+            GameState.roomCode = code;
+            document.getElementById('lobby-room-code').innerText = code;
+
+            // Generate deep controller link
+            const url = window.location.href.split('?')[0] + "?room=" + code;
+            
+            // Construct QR Code
+            document.getElementById('lobby-qrcode').innerHTML = "";
+            new QRCode(document.getElementById('lobby-qrcode'), {
+                text: url,
+                width: 156,
+                height: 156,
+                colorDark : "#090514",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+
+            document.getElementById('lobby-peer-status').innerText = "Registering room code securely...";
+            
+            // Enable Sidebar phone capability
+            document.getElementById('toggle-sidebar-btn').classList.remove('hidden');
+
+            // Initialize both direct WebRTC and loopback BroadcastChannel networks
+            initializePeerJS(code, true);
+            setupBroadcastChannel(code, true);
+        }
+
+        function setupControllerView() {
+            if (!checkDeviceRestriction('controller')) return;
+            proceedToController();
+        }
+
+        function proceedToController() {
+            initAudio();
+            GameState.role = 'controller';
+            showScreen('screen-controller-join');
+            populateAvatarSelector();
+
+            // Pre-fill Room Code if present in search query
+            const urlParams = new URLSearchParams(window.location.search);
+            const queryRoom = urlParams.get('room');
+            if (queryRoom) {
+                document.getElementById('join-code-input').value = queryRoom.toUpperCase();
+            }
+        }
+
+        function setupSoloSandbox() {
+            // Direct setup without sandbox warning screens
+            proceedToHost();
+            GameState.isSandbox = true;
+            setTimeout(() => {
+                // Instantly inject 3 intelligent AI bots
+                addMockPlayer("Bot Buzz", "🛸");
+                addMockPlayer("Bot Bleep", "🤖");
+                addMockPlayer("Bot Beat", "🎧");
+                playUiSound('success');
+            }, 500);
+        }
+
+        function populateAvatarSelector() {
+            const container = document.getElementById('join-avatar-selector');
+            container.innerHTML = "";
+            AVATARS.forEach((avatar, idx) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `avatar-btn p-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-xl transition-all ${idx === 0 ? 'ring-2 ring-cyan-500' : ''}`;
+                btn.innerText = avatar;
+                btn.onclick = (e) => {
+                    document.querySelectorAll('.avatar-btn').forEach(b => b.classList.remove('ring-2', 'ring-cyan-500'));
+                    btn.classList.add('ring-2', 'ring-cyan-500');
+                    btn.dataset.selected = true;
+                };
+                if(idx === 0) btn.dataset.selected = true;
+                container.appendChild(btn);
+            });
+        }
+
+        function getSelectedAvatar() {
+            const btn = document.querySelector('.avatar-btn[data-selected="true"]');
+            return btn ? btn.innerText : "👽";
+        }
+
+        // --- 4. REAL-TIME SIGNALING HUB (PEERJS & BROADCAST FALLBACK) ---
+        function initializePeerJS(targetCode, isHost) {
+            const peerId = isHost ? `DGBOX-${targetCode}` : `DGBOX-CONTROLLER-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+            
+            try {
+                // Connecting using PeerJS cloud service broker
+                const peer = new Peer(peerId, {
+                    debug: 1
+                });
+
+                GameState.peer = peer;
+
+                peer.on('open', (id) => {
+                    document.getElementById('connection-badge').classList.remove('hidden');
+                    document.getElementById('connection-badge').innerText = "PEER ACTIVE";
+                    document.getElementById('connection-badge').className = "px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+                    
+                    if (isHost) {
+                        document.getElementById('lobby-peer-status').innerText = "TV Screen online and listening (WebRTC/P2P).";
+                    } else {
+                        // Automatically attempt hand-shaking with Host
+                        connectToHost(targetCode);
+                    }
+                });
+
+                peer.on('error', (err) => {
+                    console.warn("PeerJS network warning/error:", err);
+                    // Fall back to Broadcast Channel if Peer connection can't negotiate over WebSockets
+                    if (!GameState.usingBroadcast) {
+                        setupBroadcastChannel(targetCode, isHost);
+                    }
+                });
+
+                if (isHost) {
+                    // Listen for Controller connections
+                    peer.on('connection', (conn) => {
+                        setupHostIncomingDataListener(conn);
+                    });
+                }
+            } catch (err) {
+                console.warn("PeerJS WebSocket creation failed (restricted container sandbox). Activating Local BroadcastChannel loopback...", err);
+                setupBroadcastChannel(targetCode, isHost);
+            }
+        }
+
+        function connectToHost(code) {
+            if (!GameState.peer) return;
+            const hostId = `DGBOX-${code}`;
+            const conn = GameState.peer.connect(hostId);
+            GameState.conn = conn;
+
+            conn.on('open', () => {
+                // Handshake with client profile details
+                conn.send({
+                    type: "JOIN_REQUEST",
+                    name: document.getElementById('join-name-input').value.trim() || "Mysterious Gamer",
+                    avatar: getSelectedAvatar()
+                });
+            });
+
+            conn.on('data', (data) => {
+                handleControllerIncomingData(data);
+            });
+
+            conn.on('close', () => {
+                showScreen('screen-controller-join');
+                showJoinError("The host has disconnected.");
+            });
+        }
+
+        // Host Handling Controller Transmissions
+        function setupHostIncomingDataListener(conn) {
+            conn.on('data', (data) => {
+                handleUniversalControllerInput(conn.peer, data);
+            });
+        }
+
+        // Controller Handling Host Transmissions
+        function handleControllerIncomingData(data) {
+            if (data.type === "JOIN_ACCEPT") {
+                // Settle on waiting screen
+                document.getElementById('controller-lobby-name').innerText = document.getElementById('join-name-input').value.trim() || "Contestant";
+                document.getElementById('controller-lobby-avatar').innerText = getSelectedAvatar();
+                showScreen('screen-controller-lobby');
+                playUiSound('success');
+            }
+
+            if (data.type === "TRANSITION_STAGE") {
+                const gameType = data.gameType;
+                const stage = data.stage;
+                const targetText = data.targetText;
+
+                if (stage === "INTRO" || stage === "STIMULUS") {
+                    showScreen('screen-controller-lobby');
+                } else if (stage === "INPUT") {
+                    // Activate specific inputs
+                    showScreen('screen-controller-play');
+                    setupControllerInputsForGame(gameType, targetText);
+                } else if (stage === "REVEAL" || stage === "SCOREBOARD") {
+                    showScreen('screen-controller-submitted');
+                    document.getElementById('controller-submit-feedback').innerText = "The guesses are being graded! Watch the TV screen.";
+                }
+            }
+        }
+
+        // --- BROADCASTCHANNEL FALLBACK SYSTEM ---
+        // Allows direct tab-to-tab, iframe-to-parent data transport safely bypassing WebSocket restrictions
+        function setupBroadcastChannel(roomCode, isHost) {
+            if (GameState.usingBroadcast) return;
+            GameState.usingBroadcast = true;
+            bcId = isHost ? 'HOST' : `CONTROLLER-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+
+            try {
+                bcChannel = new BroadcastChannel(`DGBOX-ROOM-${roomCode}`);
+                
+                document.getElementById('connection-badge').classList.remove('hidden');
+                document.getElementById('connection-badge').innerText = "SANDBOX LOCAL NETWORK";
+                document.getElementById('connection-badge').className = "px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 animate-pulse";
+
+                if (isHost) {
+                    document.getElementById('lobby-peer-status').innerText = "TV Screen online (Local BroadcastChannel Fallback).";
+                    
+                    bcChannel.onmessage = (e) => {
+                        const { from, to, data } = e.data;
+                        if (to === 'HOST') {
+                            handleUniversalControllerInput(from, data);
+                        }
+                    };
+                } else {
+                    bcChannel.onmessage = (e) => {
+                        const { from, to, data } = e.data;
+                        if (to === bcId || to === 'ALL_CONTROLLERS') {
+                            handleControllerIncomingData(data);
+                        }
+                    };
+
+                    // Send instantaneous local handshake
+                    setTimeout(() => {
+                        sendBroadcastPayload('HOST', {
+                            type: "JOIN_REQUEST",
+                            name: document.getElementById('join-name-input').value.trim() || "Mysterious Gamer",
+                            avatar: getSelectedAvatar()
+                        });
+                    }, 200);
+                }
+            } catch (err) {
+                console.error("Local BroadcastChannel initialization failed.", err);
+            }
+        }
+
+        function sendBroadcastPayload(target, payload) {
+            if (bcChannel) {
+                bcChannel.postMessage({
+                    from: bcId,
+                    to: target,
+                    data: payload
+                });
+            }
+        }
+
+        // Unified parser for both WebRTC connections and BroadcastChannel events
+        function handleUniversalControllerInput(fromPeerId, data) {
+            if (data.type === "JOIN_REQUEST") {
+                GameState.players[fromPeerId] = {
+                    name: data.name,
+                    avatar: data.avatar,
+                    score: 0,
+                    currentGuess: null,
+                    submitted: false,
+                    isBot: false,
+                    isBroadcastDevice: GameState.usingBroadcast
+                };
+                playUiSound('success');
+                updateLobbyView();
+                
+                // Send back acceptance handshake
+                if (GameState.usingBroadcast) {
+                    sendBroadcastPayload(fromPeerId, { type: "JOIN_ACCEPT" });
+                } else {
+                    // Try Peer P2P handshake
+                    const p = GameState.players[fromPeerId];
+                    if (p.connection && p.connection.open) {
+                        p.connection.send({ type: "JOIN_ACCEPT" });
+                    }
+                }
+            }
+
+            if (data.type === "EMOTE_NOISE") {
+                playUiSound(data.noise);
+                triggerVisualSplash(fromPeerId, data.noise);
+            }
+
+            if (data.type === "GUESS_SUBMIT") {
+                if (GameState.players[fromPeerId]) {
+                    GameState.players[fromPeerId].currentGuess = data.guess;
+                    GameState.players[fromPeerId].submitted = true;
+                    playUiSound('click');
+                    
+                    if (GameState.currentRoundStep === 'INPUT') {
+                        updateInputGridOnTV();
+                        checkIfAllFinishedInputting();
+                    }
+                }
+            }
+        }
+
+        // Send Noise
+        function sendEmoteNoise(sound) {
+            playUiSound(sound);
+            if (GameState.usingBroadcast) {
+                sendBroadcastPayload('HOST', { type: "EMOTE_NOISE", noise: sound });
+            } else if (GameState.conn && GameState.conn.open) {
+                GameState.conn.send({ type: "EMOTE_NOISE", noise: sound });
+            }
+        }
+
+        // Join Code validation
+        function controllerJoinRoom() {
+            const code = document.getElementById('join-code-input').value.trim().toUpperCase();
+            const name = document.getElementById('join-name-input').value.trim();
+
+            if (code.length !== 4) {
+                showJoinError("Room code must be exactly 4 letters.");
+                return;
+            }
+            if (!name) {
+                showJoinError("Please specify a nickname to represent yourself.");
+                return;
+            }
+
+            document.getElementById('join-error').classList.add('hidden');
+            
+            // Instantiate both networks. If Canvas blocks sockets, BroadcastChannel handles immediate loopback
+            initializePeerJS(code, false);
+            setupBroadcastChannel(code, false);
+        }
+
+        function showJoinError(text) {
+            const container = document.getElementById('join-error');
+            container.innerText = text;
+            container.classList.remove('hidden');
+            playUiSound('boo');
+        }
+
+        // --- 5. HOST TV CONTROLLER FUNCTIONS ---
+        function updateLobbyView() {
+            const grid = document.getElementById('lobby-player-grid');
+            grid.innerHTML = "";
+            
+            const keys = Object.keys(GameState.players);
+            if (keys.length > 0) {
+                document.getElementById('lobby-empty-hint').classList.add('hidden');
+                document.getElementById('start-game-btn').disabled = false;
+                document.getElementById('start-game-btn').className = "w-full py-4 rounded-xl text-center font-display font-bold text-lg bg-gradient-to-r from-pink-500 to-purple-600 text-white cursor-pointer hover:neon-border-magenta shadow-xl transition-all active:scale-[0.98]";
+                document.getElementById('start-game-btn').innerText = "START PARTY ENGINE";
+            } else {
+                document.getElementById('lobby-empty-hint').classList.remove('hidden');
+            }
+
+            document.getElementById('player-count-badge').innerText = `${keys.length} Connected`;
+
+            keys.forEach(key => {
+                const p = GameState.players[key];
+                const card = document.createElement('div');
+                card.id = `lobby-card-${key}`;
+                card.className = "p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center space-x-3 shadow-lg transform scale-100 transition-all duration-300";
+                card.innerHTML = `
+                    <div class="text-3xl">${p.avatar}</div>
+                    <div class="flex-grow min-w-0">
+                        <div class="font-bold text-sm text-white truncate">${p.name}</div>
+                        <div class="text-[10px] text-pink-400 font-semibold uppercase tracking-widest">${p.isBot ? 'AI Bot' : p.isBroadcastDevice ? 'Sandbox Phone' : 'Device Client'}</div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // TV Splash animations on emote noises
+        function triggerVisualSplash(peerId, emote) {
+            const card = document.getElementById(`lobby-card-${peerId}`) || document.getElementById(`input-tile-${peerId}`);
+            if (card) {
+                card.classList.add('scale-110', 'neon-border-magenta');
+                setTimeout(() => {
+                    card.classList.remove('scale-110', 'neon-border-magenta');
+                }, 300);
+            }
+        }
+
+        function addMockPlayer(name, avatar) {
+            const randomId = `BOT-${Math.floor(Math.random() * 1000)}`;
+            const botNames = ["Bot Giga", "Bot Pixel", "Bot Synth", "Bot Rhythm", "Bot Wave", "Bot Aura"];
+            const botAvatars = ["🤖", "👾", "🦖", "🛸", "🎧", "⚡"];
+
+            GameState.players[randomId] = {
+                name: name || botNames[Math.floor(Math.random() * botNames.length)],
+                avatar: avatar || botAvatars[Math.floor(Math.random() * botAvatars.length)],
+                score: 0,
+                currentGuess: null,
+                submitted: false,
+                isBot: true
+            };
+            updateLobbyView();
+        }
+
+        // Broadcast game phase state payload to connected mobile players
+        function broadcastStateToContestants(gameType, stage, targetText) {
+            // Send to BroadcastChannel devices
+            if (GameState.usingBroadcast) {
+                sendBroadcastPayload('ALL_CONTROLLERS', {
+                    type: "TRANSITION_STAGE",
+                    gameType: gameType,
+                    stage: stage,
+                    targetText: targetText || ""
+                });
+            }
+
+            // Send to WebRTC devices
+            Object.keys(GameState.players).forEach(key => {
+                const p = GameState.players[key];
+                if (!p.isBot && !p.isBroadcastDevice && p.connection && p.connection.open) {
+                    p.connection.send({
+                        type: "TRANSITION_STAGE",
+                        gameType: gameType,
+                        stage: stage,
+                        targetText: targetText || ""
+                    });
+                }
+            });
+        }
+
+        // --- 6. CORE GAME TIMELINE STEPPER ---
+        function hostStartGame() {
+            initAudio();
+            playUiSound('success');
+            GameState.currentRoundIdx = 0;
+            transitionHostToRoundStep('INTRO');
+        }
+
+        function transitionHostToRoundStep(step) {
+            GameState.currentRoundStep = step;
+            const currentRound = GameState.rounds[GameState.currentRoundIdx];
+            
+            // UI screen activation
+            showScreen('screen-host-game');
+            document.getElementById('host-sub-intro').classList.add('hidden');
+            document.getElementById('host-sub-stimulus').classList.add('hidden');
+            document.getElementById('host-sub-input').classList.add('hidden');
+            document.getElementById('host-sub-reveal').classList.add('hidden');
+            document.getElementById('host-sub-scoreboard').classList.add('hidden');
+
+            document.getElementById('host-progress-text').innerText = `Round ${GameState.currentRoundIdx + 1} of ${GameState.rounds.length}`;
+
+            // Reset guessing state for this new round
+            if (step === 'INTRO') {
+                Object.keys(GameState.players).forEach(k => {
+                    GameState.players[k].submitted = false;
+                    GameState.players[k].currentGuess = null;
+                });
+            }
+
+            switch(step) {
+                case 'INTRO':
+                    setupRoundIntro(currentRound);
+                    break;
+                case 'STIMULUS':
+                    setupRoundStimulus(currentRound);
+                    break;
+                case 'INPUT':
+                    setupRoundInput(currentRound);
+                    break;
+                case 'REVEAL':
+                    setupRoundReveal(currentRound);
+                    break;
+                case 'SCOREBOARD':
+                    setupRoundScoreboard(currentRound);
+                    break;
+            }
+        }
+
+        // TRIGGER CONTROL BUTTON: Transitions through steps manually if timeout is not active
+        function triggerNextGameStep() {
+            clearInterval(GameState.timerInterval);
+            const currentStep = GameState.currentRoundStep;
+            
+            if (currentStep === 'INTRO') {
+                transitionHostToRoundStep('STIMULUS');
+            } else if (currentStep === 'STIMULUS') {
+                transitionHostToRoundStep('INPUT');
+            } else if (currentStep === 'INPUT') {
+                // Force reveal
+                transitionHostToRoundStep('REVEAL');
+            } else if (currentStep === 'REVEAL') {
+                transitionHostToRoundStep('SCOREBOARD');
+            } else if (currentStep === 'SCOREBOARD') {
+                // Settle on next round or finalize
+                if (GameState.currentRoundIdx < GameState.rounds.length - 1) {
+                    GameState.currentRoundIdx++;
+                    transitionHostToRoundStep('INTRO');
+                } else {
+                    // Final Game Scoreboard Finish
+                    announceFinalWinner();
+                }
+            }
+        }
+
+        // --- SUB-SCREEN SETUP METHODS ---
+
+        // 1. INTRO
+        function setupRoundIntro(round) {
+            document.getElementById('game-badge').innerText = round.type.toUpperCase() + " MATCH";
+            document.getElementById('round-title').innerText = "UP NEXT: " + round.name;
+            document.getElementById('host-sub-intro').classList.remove('hidden');
+
+            document.getElementById('intro-game-title').innerText = round.name;
+            document.getElementById('intro-game-desc').innerText = round.desc;
+            
+            const iconEl = document.getElementById('intro-game-icon');
+            if (round.type === 'color') iconEl.innerText = "🎨";
+            if (round.type === 'time') iconEl.innerText = "⏱️";
+            if (round.type === 'sound') iconEl.innerText = "🔊";
+
+            broadcastStateToContestants(round.type, 'INTRO');
+            
+            // Set up UI Stepper trigger button
+            document.getElementById('host-control-action-btn').innerText = "Begin Round";
+            
+            // Start automatic timer
+            runTimer(8, () => transitionHostToRoundStep('STIMULUS'));
+        }
+
+        // 2. STIMULUS DISPLAY
+        function setupRoundStimulus(round) {
+            document.getElementById('round-title').innerText = "Memorize the Target!";
+            document.getElementById('host-sub-stimulus').classList.remove('hidden');
+            
+            const targetDisplay = document.getElementById('stimulus-display');
+            targetDisplay.innerHTML = "";
+            targetDisplay.className = "w-full aspect-[2/1] rounded-2xl flex flex-col items-center justify-center border-4 border-slate-700/50 shadow-2xl transition-all duration-300";
+            targetDisplay.style.backgroundColor = "";
+
+            // Create target parameters
+            if (round.type === 'color') {
+                const targetH = Math.floor(Math.random() * 360);
+                const targetS = Math.floor(Math.random() * 30) + 70; // 70-100% vividness
+                const targetL = Math.floor(Math.random() * 20) + 40; // 40-60% bright balanced
+                GameState.targets.color = { h: targetH, s: targetS, l: targetL };
+
+                targetDisplay.style.backgroundColor = `hsl(${targetH}, ${targetS}%, ${targetL}%)`;
+                document.getElementById('stimulus-hint').innerText = "Look closely at this shade. Memorize its brightness, hue, and vibrance.";
+            } 
+            else if (round.type === 'time') {
+                const targetSec = parseFloat((Math.random() * 3.5 + 1.5).toFixed(2)); // 1.5 - 5.0 seconds
+                GameState.targets.time = targetSec;
+
+                targetDisplay.innerHTML = `
+                    <div class="space-y-2 text-center">
+                        <div class="text-7xl font-display font-black tracking-tight text-white">${targetSec}s</div>
+                        <div class="text-xs text-indigo-400 font-extrabold uppercase tracking-widest">Hold duration target</div>
+                    </div>
+                `;
+                document.getElementById('stimulus-hint').innerText = "Keep track of the exact length of time displayed!";
+            } 
+            else if (round.type === 'sound') {
+                const targetHz = Math.floor(Math.random() * (700 - 250) + 250); // Balanced middle pitch ranges
+                GameState.targets.sound = targetHz;
+
+                targetDisplay.innerHTML = `
+                    <div class="space-y-4 text-center">
+                        <div class="w-16 h-16 bg-pink-500/10 border border-pink-500/20 text-pink-400 rounded-full flex items-center justify-center mx-auto animate-pulse text-2xl">🔊</div>
+                        <div class="text-xs text-pink-400 font-extrabold uppercase tracking-widest">A pure frequency sine wave is playing...</div>
+                    </div>
+                `;
+                document.getElementById('stimulus-hint').innerText = "Listen closely. Tap and dial the slider on your controller to match.";
+                
+                // Play target frequency 3 seconds
+                setTimeout(() => {
+                    playSynthTone(targetHz, 'sine', 3.0);
+                }, 500);
+            }
+
+            broadcastStateToContestants(round.type, 'STIMULUS');
+            document.getElementById('host-control-action-btn').innerText = "Go To Guessing";
+            
+            runTimer(8, () => transitionHostToRoundStep('INPUT'));
+        }
+
+        // 3. INPUT GATHERING
+        function setupRoundInput(round) {
+            document.getElementById('round-title').innerText = "Lock In Your Guess!";
+            document.getElementById('host-sub-input').classList.remove('hidden');
+
+            updateInputGridOnTV();
+
+            // Notify controllers and provide targets context if needed (e.g. time game needs target duration)
+            const targetText = round.type === 'time' ? GameState.targets.time.toString() : '';
+            broadcastStateToContestants(round.type, 'INPUT', targetText);
+
+            document.getElementById('host-control-action-btn').innerText = "Force Lock Reveal";
+
+            // Trigger Mock bots activity instantly (delayed realistically)
+            simulateBotGuesses(round.type);
+
+            runTimer(25, () => transitionHostToRoundStep('REVEAL'));
+        }
+
+        function updateInputGridOnTV() {
+            const container = document.getElementById('input-players-grid');
+            container.innerHTML = "";
+
+            Object.keys(GameState.players).forEach(key => {
+                const p = GameState.players[key];
+                const tile = document.createElement('div');
+                tile.id = `input-tile-${key}`;
+                tile.className = `p-4 rounded-2xl flex items-center space-x-3 border shadow-md transition-all ${
+                    p.submitted 
+                    ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300 neon-border-cyan animate-pulse' 
+                    : 'bg-slate-900/60 border-slate-800 text-slate-400'
+                }`;
+
+                tile.innerHTML = `
+                    <div class="text-3xl">${p.avatar}</div>
+                    <div class="flex-grow min-w-0">
+                        <div class="font-bold text-sm truncate text-white">${p.name}</div>
+                        <div class="text-[10px] font-bold uppercase tracking-wider ${p.submitted ? 'text-emerald-400' : 'text-slate-500'}">
+                            ${p.submitted ? 'Locked In ✓' : 'Thinking...'}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(tile);
+            });
+        }
+
+        function checkIfAllFinishedInputting() {
+            const allIn = Object.values(GameState.players).every(p => p.submitted);
+            if (allIn) {
+                transitionHostToRoundStep('REVEAL');
+            }
+        }
+
+        // 4. REVEAL STAGE
+        function setupRoundReveal(round) {
+            document.getElementById('round-title').innerText = "Grading Submissions";
+            document.getElementById('host-sub-reveal').classList.remove('hidden');
+            document.getElementById('host-control-action-btn').innerText = "View Standings";
+
+            const container = document.getElementById('reveal-canvas-container');
+            container.innerHTML = "";
+
+            // Pre-calculate grades & score adjustments
+            scoreContestantsForRound(round.type);
+
+            playUiSound('reveal-reveal');
+            broadcastStateToContestants(round.type, 'REVEAL');
+
+            if (round.type === 'color') {
+                renderColorRevealGraph(container);
+            } else if (round.type === 'time') {
+                renderTimeRevealGraph(container);
+            } else if (round.type === 'sound') {
+                renderSoundRevealGraph(container);
+            }
+        }
+
+        // --- SUBMISSION SCORE EVALUATOR LOGIC ---
+        function scoreContestantsForRound(gameType) {
+            Object.keys(GameState.players).forEach(key => {
+                const p = GameState.players[key];
+                // Handle no-input timeouts cleanly
+                if (!p.currentGuess) {
+                    p.roundScore = 0;
+                    return;
+                }
+
+                let score = 0;
+                if (gameType === 'color') {
+                    const t = GameState.targets.color;
+                    const g = p.currentGuess; // {h, s, l}
+
+                    let dh = Math.abs(t.h - g.h);
+                    if (dh > 180) dh = 360 - dh;
+                    const hNorm = dh / 180;
+                    const sNorm = Math.abs(t.s - g.s) / 100;
+                    const lNorm = Math.abs(t.l - g.l) / 100;
+
+                    const weightH = 0.6; // Hue is most critical visually
+                    const weightS = 0.2;
+                    const weightL = 0.2;
+                    const dist = Math.sqrt(hNorm * hNorm * weightH + sNorm * sNorm * weightS + lNorm * lNorm * weightL);
+                    
+                    score = Math.round(Math.max(0, (1 - dist) * 1000));
+                } 
+                else if (gameType === 'time') {
+                    const t = GameState.targets.time;
+                    const g = p.currentGuess; // float duration
+
+                    const diff = Math.abs(t - g);
+                    const tolerance = Math.max(2.5, t * 0.8);
+                    const ratio = Math.min(1.0, diff / tolerance);
+                    
+                    score = Math.round(Math.max(0, (1 - ratio) * 1000));
+                } 
+                else if (gameType === 'sound') {
+                    const t = GameState.targets.sound;
+                    const g = p.currentGuess; // Hertz float
+
+                    // Pitch is logarithmic
+                    const diffOctaves = Math.abs(Math.log2(t) - Math.log2(g));
+                    const maxOctavesAllowed = 1.0; // 1 whole octave difference = 0 points
+                    const ratio = Math.min(1.0, diffOctaves / maxOctavesAllowed);
+
+                    score = Math.round(Math.max(0, (1 - ratio) * 1000));
+                }
+
+                p.roundScore = score;
+                p.score += score;
+            });
+        }
+
+        // --- REVEAL RENDER CHASSIS (PURE HTML + STYLES) ---
+        function renderColorRevealGraph(container) {
+            const target = GameState.targets.color;
+            const targetColorHsl = `hsl(${target.h}, ${target.s}%, ${target.l}%)`;
+
+            // Top header showcasing target side-by-side with contestants guesses
+            container.innerHTML = `
+                <div class="flex flex-col md:flex-row items-center justify-between gap-6 border-b border-slate-800 pb-4">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-16 h-16 rounded-2xl border-2 border-white/20 shadow-lg" style="background-color: ${targetColorHsl}"></div>
+                        <div>
+                            <h4 class="text-sm font-bold text-slate-400">TARGET BASE SHADE</h4>
+                            <p class="text-xs text-indigo-300">HSL: ${target.h}°, ${target.s}%, ${target.l}%</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs font-bold text-pink-400 uppercase tracking-widest">Grading Metric: Chromatic Distance</span>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <h5 class="text-sm font-bold text-white uppercase tracking-wider">Contestant Precision</h5>
+                    <div id="color-reveal-rows" class="space-y-3"></div>
+                </div>
+            `;
+
+            const rowsContainer = document.getElementById('color-reveal-rows');
+            
+            // Sort by round scores to build tension!
+            const sortedPlayers = Object.values(GameState.players).sort((a,b) => a.roundScore - b.roundScore);
+
+            sortedPlayers.forEach(p => {
+                const guessHsl = p.currentGuess 
+                    ? `hsl(${p.currentGuess.h}, ${p.currentGuess.s}%, ${p.currentGuess.l}%)` 
+                    : 'transparent';
+
+                const row = document.createElement('div');
+                row.className = "flex items-center justify-between p-3 bg-slate-950/40 rounded-xl border border-slate-800 hover:border-slate-700/60 transition-all";
+                row.innerHTML = `
+                    <div class="flex items-center space-x-3 flex-grow min-w-0">
+                        <span class="text-2xl">${p.avatar}</span>
+                        <div class="min-w-0 flex-grow">
+                            <div class="font-bold text-sm text-white truncate">${p.name}</div>
+                            <div class="text-xs text-slate-500">
+                                ${p.currentGuess ? `Guess: ${p.currentGuess.h}°, ${p.currentGuess.s}%, ${p.currentGuess.l}%` : 'NO ATTEMPT'}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Side color comparison block -->
+                    <div class="flex items-center space-x-4 ml-4">
+                        <div class="flex items-center -space-x-2">
+                            <div class="w-10 h-10 rounded-full border border-slate-800" style="background-color: ${targetColorHsl}" title="Target"></div>
+                            <div class="w-10 h-10 rounded-full border border-slate-800 shadow-md relative" style="background-color: ${guessHsl}" title="Player Guess">
+                                ${!p.currentGuess ? '<span class="absolute inset-0 flex items-center justify-center text-xs text-red-500">❌</span>' : ''}
+                            </div>
+                        </div>
+                        <div class="text-right min-w-[70px]">
+                            <span class="text-xl font-display font-bold ${p.roundScore > 800 ? 'text-emerald-400' : p.roundScore > 500 ? 'text-yellow-400' : 'text-slate-400'}">+${p.roundScore}</span>
+                        </div>
+                    </div>
+                `;
+                rowsContainer.appendChild(row);
+            });
+        }
+
+        function renderTimeRevealGraph(container) {
+            const target = GameState.targets.time;
+
+            container.innerHTML = `
+                <div class="text-center py-2 border-b border-slate-800">
+                    <span class="text-xs text-slate-500 font-bold uppercase tracking-wider">TARGET TIMER DURATION</span>
+                    <h4 class="text-4xl font-display font-black text-indigo-400">${target.toFixed(2)}s</h4>
+                </div>
+
+                <!-- Horizontal comparative timeline visualization -->
+                <div class="relative w-full h-24 bg-slate-950/60 rounded-xl border border-slate-800/80 flex items-center px-6">
+                    <!-- Center target timeline guide rule -->
+                    <div class="absolute inset-x-6 h-1 bg-slate-800 rounded"></div>
+                    
+                    <!-- Exact center target mark -->
+                    <div class="absolute left-1/2 -translate-x-1/2 top-4 bottom-4 w-1 bg-indigo-500 rounded z-10">
+                        <span class="absolute top-full left-1/2 -translate-x-1/2 text-[9px] text-indigo-300 font-bold uppercase mt-1">TARGET</span>
+                    </div>
+
+                    <!-- Player guess pins -->
+                    <div id="timeline-pins-layer" class="absolute inset-0 pointer-events-none"></div>
+                </div>
+
+                <div class="space-y-3 pt-4">
+                    <h5 class="text-sm font-bold text-white uppercase tracking-wider">Timeline Offsets</h5>
+                    <div id="time-reveal-rows" class="space-y-2"></div>
+                </div>
+            `;
+
+            const pinsLayer = document.getElementById('timeline-pins-layer');
+            const rowsContainer = document.getElementById('time-reveal-rows');
+
+            const sortedPlayers = Object.values(GameState.players).sort((a,b) => a.roundScore - b.roundScore);
+
+            sortedPlayers.forEach((p, idx) => {
+                const guess = p.currentGuess || 0;
+                const offset = guess - target;
+                
+                // Position calculations relative to center line (50% is target)
+                // Max visible variance window scale on timeline is +- 2.5 seconds
+                const scaleRange = 2.5; 
+                let percentOffset = (offset / scaleRange) * 50; // map to +- 50%
+                percentOffset = Math.max(-45, Math.min(45, percentOffset)); // clamp nicely inside walls
+                const leftPos = 50 + percentOffset;
+
+                // Render marker pin if participant guessed
+                if (p.currentGuess) {
+                    const pin = document.createElement('div');
+                    pin.className = "absolute -translate-x-1/2 top-8 flex flex-col items-center transition-all duration-700";
+                    pin.style.left = `${leftPos}%`;
+                    pin.innerHTML = `
+                        <div class="w-6 h-6 rounded-full bg-slate-900 border-2 border-pink-500 text-xs flex items-center justify-center shadow-lg transform hover:scale-125 transition-transform" title="${p.name}">${p.avatar}</div>
+                        <div class="w-0.5 h-6 bg-pink-500/80"></div>
+                    `;
+                    pinsLayer.appendChild(pin);
+                }
+
+                // Add list item
+                const row = document.createElement('div');
+                row.className = "flex items-center justify-between p-3 bg-slate-950/40 rounded-xl border border-slate-800";
+                row.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <span class="text-2xl">${p.avatar}</span>
+                        <div>
+                            <div class="font-bold text-sm text-white">${p.name}</div>
+                            <div class="text-xs text-slate-500">
+                                ${p.currentGuess 
+                                    ? `Held: ${p.currentGuess.toFixed(2)}s (${offset >= 0 ? '+' : ''}${offset.toFixed(2)}s)` 
+                                    : 'NO INPUT'}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xl font-display font-bold ${p.roundScore > 800 ? 'text-emerald-400' : p.roundScore > 500 ? 'text-yellow-400' : 'text-slate-400'}">+${p.roundScore}</span>
+                    </div>
+                `;
+                rowsContainer.appendChild(row);
+            });
+        }
+
+        function renderSoundRevealGraph(container) {
+            const targetHz = GameState.targets.sound;
+
+            container.innerHTML = `
+                <div class="text-center py-2 border-b border-slate-800 flex justify-between items-center px-4">
+                    <span class="text-xs text-slate-500 font-bold uppercase tracking-wider">TARGET FREQUENCY</span>
+                    <button onclick="playSynthTone(${targetHz}, 'sine', 1.5)" class="px-4 py-1.5 bg-indigo-500 hover:bg-indigo-400 text-white rounded-lg text-xs font-bold flex items-center space-x-1 shadow">
+                        <span>🔊 Play Target</span>
+                    </button>
+                </div>
+
+                <div class="space-y-3 pt-2">
+                    <h5 class="text-sm font-bold text-white uppercase tracking-wider">Harmonic Alignments</h5>
+                    <div id="sound-reveal-rows" class="space-y-3"></div>
+                </div>
+            `;
+
+            const rowsContainer = document.getElementById('sound-reveal-rows');
+            const sortedPlayers = Object.values(GameState.players).sort((a,b) => b.roundScore - a.roundScore);
+
+            sortedPlayers.forEach(p => {
+                const guess = p.currentGuess || 0;
+                const offsetHz = guess - targetHz;
+
+                const row = document.createElement('div');
+                row.className = "flex items-center justify-between p-3 bg-slate-950/40 rounded-xl border border-slate-800 transition-all";
+                row.innerHTML = `
+                    <div class="flex items-center space-x-3 flex-grow min-w-0">
+                        <span class="text-2xl">${p.avatar}</span>
+                        <div class="min-w-0 flex-grow">
+                            <div class="font-bold text-sm text-white truncate">${p.name}</div>
+                            <div class="text-xs text-slate-500">
+                                ${p.currentGuess 
+                                    ? `Dialed Frequency: ${guess} Hz (${offsetHz >= 0 ? '+' : ''}${offsetHz} Hz)` 
+                                    : 'NO DIAL'}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-4 ml-4">
+                        ${p.currentGuess 
+                            ? `<button onclick="playSynthTone(${guess}, 'sine', 1.0)" class="p-2 bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/20 rounded-xl text-xs" title="Hear guess">🔊</button>` 
+                            : ''
+                        }
+                        <div class="text-right min-w-[70px]">
+                            <span class="text-xl font-display font-bold ${p.roundScore > 800 ? 'text-emerald-400' : p.roundScore > 500 ? 'text-yellow-400' : 'text-slate-400'}">+${p.roundScore}</span>
+                        </div>
+                    </div>
+                `;
+                rowsContainer.appendChild(row);
+            });
+        }
+
+        // 5. SCOREBOARD STAGE
+        function setupRoundScoreboard(round) {
+            document.getElementById('round-title').innerText = "Leaderboard Summary";
+            document.getElementById('host-sub-scoreboard').classList.remove('hidden');
+
+            const scoreContainer = document.getElementById('scoreboard-list');
+            scoreContainer.innerHTML = "";
+
+            // Sort contestants by overall accumulated scores
+            const playersList = Object.values(GameState.players).sort((a, b) => b.score - a.score);
+            const highestScore = playersList[0] ? Math.max(1, playersList[0].score) : 1;
+
+            playersList.forEach((p, idx) => {
+                // Percentage representation for bar scaling
+                const percent = (p.score / highestScore) * 100;
+                
+                const row = document.createElement('div');
+                row.className = "flex items-center space-x-4 animate-fade-in";
+                row.style.animationDelay = `${idx * 150}ms`;
+                row.innerHTML = `
+                    <div class="flex items-center justify-center font-display font-black text-2xl text-indigo-400 w-8">
+                        #${idx + 1}
+                    </div>
+                    <div class="text-3xl">${p.avatar}</div>
+                    <div class="flex-grow space-y-1 min-w-0">
+                        <div class="flex justify-between items-baseline">
+                            <span class="font-bold text-white truncate text-base">${p.name}</span>
+                            <span class="font-display font-extrabold text-indigo-300 text-lg ml-2">${p.score} pts</span>
+                        </div>
+                        
+                        <!-- Visual animated progress indicator bar -->
+                        <div class="w-full h-3 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                            <div class="h-full bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 rounded-full shadow-lg shadow-purple-500/20 transition-all duration-1000 ease-out" style="width: 0%"></div>
+                        </div>
+                    </div>
+                `;
+
+                scoreContainer.appendChild(row);
+
+                // Force layout reflow to animate bar width smoothly
+                setTimeout(() => {
+                    row.querySelector('.h-full').style.width = `${percent}%`;
+                }, 50);
+            });
+
+            // If we are at the final game round, make button text indicate finish line
+            if (GameState.currentRoundIdx >= GameState.rounds.length - 1) {
+                document.getElementById('host-control-action-btn').innerText = "Calculate Final Winner";
+            } else {
+                document.getElementById('host-control-action-btn').innerText = "Advance Next Round";
+            }
+
+            broadcastStateToContestants(round.type, 'SCOREBOARD');
+        }
+
+        function announceFinalWinner() {
+            document.getElementById('round-title').innerText = "🏆 PERCEPTION CHAMPION";
+            const currentRound = GameState.rounds[GameState.currentRoundIdx];
+            
+            // Clean active game UI steps, display custom podium
+            const container = document.getElementById('host-sub-scoreboard');
+            container.innerHTML = "";
+
+            const playersList = Object.values(GameState.players).sort((a, b) => b.score - a.score);
+            const winner = playersList[0];
+
+            if (winner) {
+                playUiSound('success');
+                container.innerHTML = `
+                    <div class="text-center space-y-6 py-8 animate-bounce">
+                        <div class="inline-block p-6 bg-gradient-to-tr from-amber-400 to-yellow-500 rounded-3xl text-7xl shadow-2xl shadow-yellow-500/10">👑</div>
+                        <div class="space-y-1">
+                            <h3 class="text-5xl font-display font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-400 to-orange-400 tracking-wider uppercase">${winner.name}</h3>
+                            <p class="text-slate-400 font-semibold tracking-wide text-lg">Score: ${winner.score} pts with Avatar ${winner.avatar}</p>
+                        </div>
+                        <div class="max-w-md mx-auto p-4 bg-slate-900/60 border border-slate-800 rounded-2xl text-sm text-slate-300">
+                            Congratulations! Your memory coordinates and pitch dialings were exceptionally accurate throughout all simulation trials.
+                        </div>
+                        <button onclick="location.reload()" class="px-6 py-3 bg-purple-600 hover:bg-purple-500 rounded-xl font-display font-bold text-sm text-white tracking-wide transition-all active:scale-95 shadow-xl">
+                            🔄 Restart New Party Session
+                        </button>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `<div>No players joined. Try hosting again!</div>`;
+            }
+
+            document.getElementById('host-control-action-btn').classList.add('hidden');
+        }
+
+        // --- 7. AUTOMATED TIMER SYSTEM ---
+        function runTimer(seconds, onComplete) {
+            clearInterval(GameState.timerInterval);
+            GameState.timerVal = seconds;
+            updateHudTimerDisplay();
+
+            GameState.timerInterval = setInterval(() => {
+                GameState.timerVal--;
+                updateHudTimerDisplay();
+
+                if (GameState.timerVal > 0 && GameState.timerVal <= 3) {
+                    playUiSound('countdown-tick');
+                }
+
+                if (GameState.timerVal <= 0) {
+                    clearInterval(GameState.timerInterval);
+                    playUiSound('countdown-alarm');
+                    if (onComplete) onComplete();
+                }
+            }, 1000);
+        }
+
+        function updateHudTimerDisplay() {
+            document.getElementById('timer-number').innerText = GameState.timerVal;
+            // Also update controller indicator if playing
+            const ctrlTimer = document.getElementById('control-timer-badge');
+            if (ctrlTimer) {
+                ctrlTimer.innerText = `0:${GameState.timerVal < 10 ? '0' : ''}${GameState.timerVal}`;
+            }
+        }
+
+        // --- 8. SIMULATOR AI ENGINE ---
+        function simulateBotGuesses(gameType) {
+            Object.keys(GameState.players).forEach(key => {
+                const p = GameState.players[key];
+                if (p.isBot) {
+                    // Generate smart humanized offset errors
+                    const delay = Math.random() * 8000 + 3000; // random delay submission
+                    setTimeout(() => {
+                        let mockGuess = null;
+                        
+                        if (gameType === 'color') {
+                            const t = GameState.targets.color;
+                            // Bot error offsets (+- 15 degrees Hue, Sat, Light)
+                            mockGuess = {
+                                h: Math.round((t.h + (Math.random() * 30 - 15) + 360) % 360),
+                                s: Math.round(Math.max(10, Math.min(100, t.s + (Math.random() * 20 - 10)))),
+                                l: Math.round(Math.max(10, Math.min(90, t.l + (Math.random() * 14 - 7))))
+                            };
+                        } 
+                        else if (gameType === 'time') {
+                            const t = GameState.targets.time;
+                            // Off by up to +- 0.8 seconds
+                            mockGuess = parseFloat((t + (Math.random() * 1.2 - 0.6)).toFixed(2));
+                            if (mockGuess < 0.1) mockGuess = 0.1;
+                        } 
+                        else if (gameType === 'sound') {
+                            const t = GameState.targets.sound;
+                            // Off by up to +- 45 Hertz
+                            mockGuess = Math.round(t + (Math.random() * 90 - 45));
+                        }
+
+                        p.currentGuess = mockGuess;
+                        p.submitted = true;
+
+                        if (GameState.currentRoundStep === 'INPUT') {
+                            updateInputGridOnTV();
+                            checkIfAllFinishedInputting();
+                        }
+                    }, delay);
+                }
+            });
+        }
+
+        // --- 9. MOBILE CONTROLLER DYNAMICS ---
+        function setupControllerInputsForGame(gameType, targetText) {
+            document.getElementById('ctrl-input-color').classList.add('hidden');
+            document.getElementById('ctrl-input-time').classList.add('hidden');
+            document.getElementById('ctrl-input-sound').classList.add('hidden');
+
+            document.getElementById('ctrl-submit-btn').disabled = false;
+            document.getElementById('ctrl-submit-btn').className = "w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 rounded-xl font-display font-bold text-lg text-white shadow-xl transition-all active:scale-[0.98]";
+            document.getElementById('ctrl-submit-btn').innerText = "LOCK IN ANSWER";
+
+            if (gameType === 'color') {
+                document.getElementById('ctrl-input-color').classList.remove('hidden');
+                document.getElementById('control-game-avatar').innerText = "🎨";
+                document.getElementById('control-game-title').innerText = "Color Match";
+                updateColorPreview();
+            } 
+            else if (gameType === 'time') {
+                document.getElementById('ctrl-input-time').classList.remove('hidden');
+                document.getElementById('control-game-avatar').innerText = "⏱️";
+                document.getElementById('control-game-title').innerText = "Time Match";
+                document.getElementById('time-target-text').innerText = targetText;
+                
+                // Reset interaction states
+                document.getElementById('time-debug-result').innerText = "(Press & hold when ready)";
+                document.getElementById('time-holding-indicator').classList.add('hidden');
+                document.getElementById('time-btn-glow').classList.add('opacity-0');
+                controllerTimeState.recordedDuration = 0;
+            } 
+            else if (gameType === 'sound') {
+                document.getElementById('ctrl-input-sound').classList.remove('hidden');
+                document.getElementById('control-game-avatar').innerText = "🔊";
+                document.getElementById('control-game-title').innerText = "Sound Match";
+                updateHzValue();
+            }
+        }
+
+        // --- COLOR WORKER ---
+        function updateColorPreview() {
+            const h = document.getElementById('slider-hue').value;
+            const s = document.getElementById('slider-sat').value;
+            const l = document.getElementById('slider-light').value;
+
+            document.getElementById('val-hue').innerText = `${h}°`;
+            document.getElementById('val-sat').innerText = `${s}%`;
+            document.getElementById('val-light').innerText = `${l}%`;
+
+            document.getElementById('color-preview').style.backgroundColor = `hsl(${h}, ${s}%, ${l}%)`;
+        }
+
+        // --- TIME WORKER ---
+        let controllerTimeState = {
+            startTime: 0,
+            recordedDuration: 0,
+            isHolding: false
+        };
+
+        function timeBtnPressed(e) {
+            if (e) e.preventDefault();
+            if (controllerTimeState.isHolding) return;
+
+            initAudio();
+            controllerTimeState.isHolding = true;
+            controllerTimeState.startTime = performance.now();
+
+            document.getElementById('time-holding-indicator').classList.remove('hidden');
+            document.getElementById('time-btn-glow').classList.remove('opacity-0');
+            document.getElementById('time-btn-glow').classList.add('animate-pulse-slow');
+            document.getElementById('time-debug-result').innerText = "Release key to finish timing...";
+            playSynthTone(220, 'sine', 0.1);
+        }
+
+        function timeBtnReleased(e) {
+            if (e) e.preventDefault();
+            if (!controllerTimeState.isHolding) return;
+
+            controllerTimeState.isHolding = false;
+            const elapsed = (performance.now() - controllerTimeState.startTime) / 1000;
+            controllerTimeState.recordedDuration = parseFloat(elapsed.toFixed(2));
+
+            document.getElementById('time-holding-indicator').classList.add('hidden');
+            document.getElementById('time-btn-glow').classList.add('opacity-0');
+            document.getElementById('time-btn-glow').classList.remove('animate-pulse-slow');
+            document.getElementById('time-debug-result').innerText = `Recorded: ${controllerTimeState.recordedDuration.toFixed(2)} seconds!`;
+            
+            playSynthTone(330, 'sine', 0.1);
+        }
+
+        // --- SOUND WORKER ---
+        function updateHzValue() {
+            const hz = document.getElementById('slider-hz').value;
+            document.getElementById('val-hz').innerText = `${hz} Hz`;
+        }
+
+        function playControllerTestTone() {
+            const hz = document.getElementById('slider-hz').value;
+            // Play sine wave guess
+            playSynthTone(hz, 'sine', 1.2);
+        }
+
+        // Submit Controller Guess Back to Host
+        function controllerSubmitGuess() {
+            const currentRound = GameState.rounds[GameState.currentRoundIdx];
+            let guess = null;
+
+            if (currentRound.type === 'color') {
+                guess = {
+                    h: parseInt(document.getElementById('slider-hue').value),
+                    s: parseInt(document.getElementById('slider-sat').value),
+                    l: parseInt(document.getElementById('slider-light').value)
+                };
+            } 
+            else if (currentRound.type === 'time') {
+                guess = controllerTimeState.recordedDuration;
+                if (!guess || guess === 0) {
+                    document.getElementById('time-debug-result').innerText = "⚠️ Hold down button first!";
+                    playUiSound('boo');
+                    return;
+                }
+            } 
+            else if (currentRound.type === 'sound') {
+                guess = parseInt(document.getElementById('slider-hz').value);
+            }
+
+            playUiSound('success');
+            showScreen('screen-controller-submitted');
+
+            // Route safely via the best connection channel available
+            if (GameState.usingBroadcast) {
+                sendBroadcastPayload('HOST', {
+                    type: "GUESS_SUBMIT",
+                    guess: guess
+                });
+            } else if (GameState.conn && GameState.conn.open) {
+                GameState.conn.send({
+                    type: "GUESS_SUBMIT",
+                    guess: guess
+                });
+            } else {
+                console.log("No controller connection, saving guess locally (Sandbox Mode)");
+            }
+        }
+
+        // --- 10. SANDBOX SIDEBAR CONTROLLER DRAWER ---
+        function toggleVirtualPhone() {
+            const sidebar = document.getElementById('virtual-phone-sidebar');
+            const iframe = document.getElementById('virtual-phone-iframe');
+            
+            if (sidebar.classList.contains('hidden')) {
+                sidebar.classList.remove('hidden');
+                if (iframe.src === 'about:blank' || iframe.src === '') {
+                    // Load index.html with Room Code query to immediately trigger controller join sequence
+                    const cleanUrl = window.location.href.split('?')[0] + "?room=" + GameState.roomCode;
+                    iframe.src = cleanUrl;
+                }
+                playUiSound('click');
+            } else {
+                sidebar.classList.add('hidden');
+                playUiSound('click');
+            }
+        }
+
+        // --- AUTOMATIC INLINE REDIRECT FOR CONTROLLER DEEP-LINKS ---
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const queryRoom = urlParams.get('room');
+            if (queryRoom && GameState.role === null) {
+                // Configure this tab specifically as controller automatically
+                setupControllerView();
+                // Pick a funny random default name to make sandbox testing instantaneous
+                const prenames = ["Neon Falcon", "Vibe Caster", "Audio Aura", "Pixel Pulse", "Dial Master", "Sonic Boom"];
+                document.getElementById('join-name-input').value = prenames[Math.floor(Math.random() * prenames.length)];
+                
+                // Fast-track connection handshake
+                setTimeout(() => {
+                    controllerJoinRoom();
+                }, 400);
+            }
+        };
+    </script>
+</body>
+</html>
