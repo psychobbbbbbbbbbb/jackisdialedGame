@@ -564,6 +564,32 @@
         let bcChannel = null;
         let bcId = "";
 
+        // ICE / STUN / TURN servers list for WebRTC cross-network NAT bypass
+        const ICE_SERVERS_CONFIG = {
+            iceServers: [
+                { urls: "stun:stun.l.google.com:19302" },
+                { urls: "stun:stun1.l.google.com:19302" },
+                { urls: "stun:stun2.l.google.com:19302" },
+                { urls: "stun:stun3.l.google.com:19302" },
+                { urls: "stun:stun4.l.google.com:19302" },
+                {
+                    urls: "turn:openrelay.metered.ca:80",
+                    username: "openrelayproject",
+                    credential: "openrelayproject"
+                },
+                {
+                    urls: "turn:openrelay.metered.ca:443",
+                    username: "openrelayproject",
+                    credential: "openrelayproject"
+                },
+                {
+                    urls: "turns:openrelay.metered.ca:443?transport=tcp",
+                    username: "openrelayproject",
+                    credential: "openrelayproject"
+                }
+            ]
+        };
+
         // --- DEVICE PLATFORM DETECTION ENGINE ---
         function isMobileDevice() {
             const ua = navigator.userAgent || navigator.vendor || window.opera;
@@ -821,9 +847,10 @@
             const peerId = isHost ? `DGBOX-${targetCode}` : `DGBOX-CONTROLLER-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
             
             try {
-                // Connecting using PeerJS cloud service broker
+                // Connecting using PeerJS cloud service broker with robust TURN configurations
                 const peer = new Peer(peerId, {
-                    debug: 1
+                    debug: 1,
+                    config: ICE_SERVERS_CONFIG
                 });
 
                 GameState.peer = peer;
@@ -843,6 +870,9 @@
 
                 peer.on('error', (err) => {
                     console.warn("PeerJS network warning/error:", err);
+                    if (err.type === 'unavailable-id' && isHost) {
+                        document.getElementById('lobby-peer-status').innerText = "Room code collision. Try refreshing for a new code.";
+                    }
                     // Fall back to Broadcast Channel if Peer connection can't negotiate over WebSockets
                     if (!GameState.usingBroadcast) {
                         setupBroadcastChannel(targetCode, isHost);
@@ -880,6 +910,11 @@
                 handleControllerIncomingData(data);
             });
 
+            conn.on('error', (err) => {
+                console.error("Connection link error:", err);
+                showJoinError("Network blockage. Retrying over alternative pathways...");
+            });
+
             conn.on('close', () => {
                 showScreen('screen-controller-join');
                 showJoinError("The host has disconnected.");
@@ -889,7 +924,14 @@
         // Host Handling Controller Transmissions
         function setupHostIncomingDataListener(conn) {
             conn.on('data', (data) => {
-                handleUniversalControllerInput(conn.peer, data);
+                handleUniversalControllerInput(conn.peer, data, conn);
+            });
+
+            conn.on('close', () => {
+                if (GameState.players[conn.peer]) {
+                    delete GameState.players[conn.peer];
+                    updateLobbyView();
+                }
             });
         }
 
@@ -977,7 +1019,7 @@
         }
 
         // Unified parser for both WebRTC connections and BroadcastChannel events
-        function handleUniversalControllerInput(fromPeerId, data) {
+        function handleUniversalControllerInput(fromPeerId, data, conn = null) {
             if (data.type === "JOIN_REQUEST") {
                 GameState.players[fromPeerId] = {
                     name: data.name,
@@ -986,7 +1028,8 @@
                     currentGuess: null,
                     submitted: false,
                     isBot: false,
-                    isBroadcastDevice: GameState.usingBroadcast
+                    isBroadcastDevice: GameState.usingBroadcast,
+                    connection: conn // Store P2P WebRTC Connection Reference!
                 };
                 playUiSound('success');
                 updateLobbyView();
